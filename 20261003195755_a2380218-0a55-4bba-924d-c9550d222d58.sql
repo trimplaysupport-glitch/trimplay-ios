@@ -1,0 +1,1 @@
+ALTER FUNCTION public.get_tier(uuid, text) SECURITY INVOKER;

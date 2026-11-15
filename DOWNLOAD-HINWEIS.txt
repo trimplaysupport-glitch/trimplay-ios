@@ -1,0 +1,7 @@
+TrimPlay iOS – Quellprojekt
+
+Diese ZIP enthält das Xcode-Projekt und die Web-App-Quellen für Codemagic.
+Sie ist keine installierbare IPA-Datei.
+Apple-Signierung muss in Codemagic eingerichtet werden.
+Die App lädt https://trimplay.app/?app=ios.
+Geheime Zugangsdaten und erzeugte Build-Dateien sind nicht enthalten.

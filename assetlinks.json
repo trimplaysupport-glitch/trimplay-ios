@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.trimplay.twa",
+        "sha256_cert_fingerprints": ["11:CE:C4:AB:24:4B:A4:58:42:23:F6:25:F6:3B:0D:7D:2F:FF:01:EC:A4:CF:C7:72:56:18:23:77:6A:09:F4:5A"]
+      }
+    }]
