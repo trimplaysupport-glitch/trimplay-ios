@@ -6,12 +6,19 @@ workflows:
     integrations:
       app_store_connect: Codemagic
     environment:
+      vars:
+        CERTIFICATE_PRIVATE_KEY: ""
       xcode: latest
     scripts:
-      - name: Fetch signing files
+      - name: Generate certificate key if empty
         script: |
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            openssl genrsa -out /tmp/cert_key.pem 2048
+            export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert_key.pem)
+          fi
           app-store-connect fetch-signing-files "app.trimplay" \
             --type IOS_APP_STORE \
+            --certificate-key=@file:/tmp/cert_key.pem \
             --create
       - name: Set up code signing settings on Xcode project
         script: |
