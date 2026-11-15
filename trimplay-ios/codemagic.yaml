@@ -4,24 +4,31 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: Apple Connect
+      app_store_connect: Codemagic
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: app.trimplay
       xcode: latest
+      node: latest
     scripts:
-      - name: Fetch signing files
+      - name: Install dependencies and generate iOS project
         script: |
+          npm install
+          npm run build
+          rm -rf ios
+          npx cap add ios
+          npx cap sync ios
+      - name: Generate certificate key and fetch signing files
+        script: |
+          openssl genrsa -out /tmp/cert_key.pem 2048
           app-store-connect fetch-signing-files "app.trimplay" \
             --type IOS_APP_STORE \
+            --certificate-key=@file:/tmp/cert_key.pem \
             --create
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
       - name: Build ipa for distribution
         script: |
-          PROJECT_FILE=$(find . -maxdepth 3 -name "*.xcodeproj" | head -n 1)
+          PROJECT_FILE=$(find ios -maxdepth 3 -name "*.xcodeproj" | head -n 1)
           SCHEME_NAME=$(xcodebuild -list -project "$PROJECT_FILE" | awk '/Schemes:/{getline; print; exit}' | xargs)
           xcode-project build-ipa \
             --project "$PROJECT_FILE" \
