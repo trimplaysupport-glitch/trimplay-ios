@@ -1,43 +1,42 @@
 workflows:
-  ios-release:
-    name: TrimPlay iOS · TestFlight
-    instance_type: mac_mini_m2
+  ios-appstore-workflow:
+    name: TrimPlay iOS App Store Build
     max_build_duration: 60
+    instance_type: mac_mini_m2
     integrations:
-      # Add this named integration in Codemagic; do not put Apple keys here.
-      app_store_connect: trimplay-app-store
+      app_store_connect: Codemagic
     environment:
-      node: 22
       xcode: latest
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: app.trimplay
-      vars:
-        XCODE_PROJECT: ios/App/App.xcodeproj
-        XCODE_SCHEME: App
+      node: latest
     scripts:
-      - name: Install locked dependencies
+      - name: Install dependencies and generate iOS project
         script: |
-          npm install --global bun@1.4.4
-          bun install --frozen-lockfile
-      - name: Build web assets and sync Capacitor
-        script: npm run build:ios
-      - name: Resolve Swift packages
-        script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
-      - name: Apply signing profiles
-        script: xcode-project use-profiles
-      - name: Set unique build number
+          npm install
+          npm run build
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+      - name: Generate certificate key and fetch signing files
         script: |
-          cd ios/App
-          agvtool new-version -all "$BUILD_NUMBER"
-      - name: Build signed IPA
-        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          app-store-connect fetch-signing-files "app.trimplay" \
+            --type IOS_APP_STORE \
+            --certificate-key=@file:/tmp/cert_key.pem \
+            --create
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build ipa for distribution
+        script: |
+          PROJECT_FILE=$(find ios -maxdepth 3 -name "*.xcodeproj" | head -n 1)
+          SCHEME_NAME=$(xcodebuild -list -project "$PROJECT_FILE" | awk '/Schemes:/{getline; print; exit}' | xargs)
+          xcode-project build-ipa \
+            --project "$PROJECT_FILE" \
+            --scheme "$SCHEME_NAME"
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: false
