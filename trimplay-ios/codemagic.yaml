@@ -6,6 +6,9 @@ workflows:
     integrations:
       app_store_connect: Codemagic
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.trimplay
       xcode: latest
       node: latest
     scripts:
@@ -20,13 +23,6 @@ workflows:
           if [ -f "ios/App/Podfile" ]; then
             cd ios/App && pod install && cd ../..
           fi
-      - name: Generate certificate key and fetch signing files
-        script: |
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          app-store-connect fetch-signing-files "app.trimplay" \
-            --type IOS_APP_STORE \
-            --certificate-key=@file:/tmp/cert_key.pem \
-            --create
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
