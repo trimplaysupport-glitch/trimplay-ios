@@ -32,14 +32,23 @@ workflows:
           xcode-project use-profiles
       - name: Build ipa for distribution
         script: |
+          set -o pipefail
           if [ -d "ios/App/App.xcworkspace" ]; then
             xcode-project build-ipa \
               --workspace "ios/App/App.xcworkspace" \
-              --scheme "App"
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
+                echo "=== XCODE ERROR DETAILS ==="
+                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
+                exit 1
+              }
           else
             xcode-project build-ipa \
               --project "ios/App/App.xcodeproj" \
-              --scheme "App"
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
+                echo "=== XCODE ERROR DETAILS ==="
+                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
+                exit 1
+              }
           fi
     artifacts:
       - build/ios/ipa/*.ipa
