@@ -17,6 +17,9 @@ workflows:
             npx cap add ios
           fi
           npx cap sync ios
+          if [ -f "ios/App/Podfile" ]; then
+            cd ios/App && pod install && cd ../..
+          fi
       - name: Generate certificate key and fetch signing files
         script: |
           openssl genrsa -out /tmp/cert_key.pem 2048
@@ -29,11 +32,15 @@ workflows:
           xcode-project use-profiles
       - name: Build ipa for distribution
         script: |
-          PROJECT_FILE=$(find ios -maxdepth 3 -name "*.xcodeproj" | head -n 1)
-          SCHEME_NAME=$(xcodebuild -list -project "$PROJECT_FILE" | awk '/Schemes:/{getline; print; exit}' | xargs)
-          xcode-project build-ipa \
-            --project "$PROJECT_FILE" \
-            --scheme "$SCHEME_NAME"
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            xcode-project build-ipa \
+              --workspace "ios/App/App.xcworkspace" \
+              --scheme "App"
+          else
+            xcode-project build-ipa \
+              --project "ios/App/App.xcodeproj" \
+              --scheme "App"
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
