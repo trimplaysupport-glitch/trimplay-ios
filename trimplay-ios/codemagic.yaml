@@ -27,14 +27,17 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
       - name: Build ipa for distribution
         script: |
           set -o pipefail
           if [ -d "ios/App/App.xcworkspace" ]; then
             xcode-project build-ipa \
               --workspace "ios/App/App.xcworkspace" \
-              --scheme "App" \
-              --build-number=$BUILD_NUMBER 2>&1 | tee /tmp/xcodebuild.log || {
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
                 echo "=== XCODE ERROR DETAILS ==="
                 grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
                 exit 1
@@ -42,8 +45,7 @@ workflows:
           else
             xcode-project build-ipa \
               --project "ios/App/App.xcodeproj" \
-              --scheme "App" \
-              --build-number=$BUILD_NUMBER 2>&1 | tee /tmp/xcodebuild.log || {
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
                 echo "=== XCODE ERROR DETAILS ==="
                 grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
                 exit 1
