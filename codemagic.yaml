@@ -1,31 +1,17 @@
-android-release:
-    name: TrimPlay Android Google Play Build
-    max_build_duration: 60
-    instance_type: linux_x2
-    environment:
-      android_signing:
-        - trimplay_keystore
-      java: 21
-      node: latest
-    scripts:
-      - name: Install dependencies and generate Android project
-        script: |
-          npm install
-          npm install @capacitor/android
-          npm run build
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-          npx capacitor-assets generate --android || true
-          npx cap sync android
-      - name: Increment versionCode
-        script: |
-          sed -i "s/versionCode 1/versionCode 10/" android/app/build.gradle || true
+Bitte aktualisiere in der Datei codemagic.yaml im Bereich android-release den Schritt "Configure Android signing" und "Build Android AAB" exakt so:
+
       - name: Configure Android signing
         script: |
-          cat << 'EOF' >> android/app/build.gradle
-
-          android {
+          cat << 'EOF' >> android/gradle.properties
+          RELEASE_STORE_FILE=$CM_KEYSTORE_PATH
+          RELEASE_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
+          RELEASE_KEY_ALIAS=$CM_KEY_ALIAS
+          RELEASE_KEY_PASSWORD=$CM_KEY_PASSWORD
+          EOF
+          python3 -c '
+          with open("android/app/build.gradle", "r") as f:
+              content = f.read()
+          signing_block = """
               signingConfigs {
                   release {
                       storeFile file(System.getenv("CM_KEYSTORE_PATH"))
@@ -34,16 +20,14 @@ android-release:
                       keyPassword System.getenv("CM_KEY_PASSWORD")
                   }
               }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                  }
-              }
-          }
-          EOF
+          """
+          content = content.replace("buildTypes {", signing_block + "\n    buildTypes {")
+          content = content.replace("minifyEnabled false", "minifyEnabled false\n            signingConfig signingConfigs.release")
+          with open("android/app/build.gradle", "w") as f:
+              f.write(content)
+          '
       - name: Build Android AAB
         script: |
           cd android
           ./gradlew bundleRelease
-    artifacts:
-      - android/app/build/outputs/**/*.aab
+          ls -la app/build/outputs/bundle/release/
