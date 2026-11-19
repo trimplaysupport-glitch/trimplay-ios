@@ -5,7 +5,7 @@ android-release:
     environment:
       android_signing:
         - trimplay_keystore
-      java: 17
+      java: 21
       node: latest
     scripts:
       - name: Install dependencies and generate Android project
@@ -21,6 +21,26 @@ android-release:
       - name: Increment versionCode
         script: |
           sed -i "s/versionCode 1/versionCode 10/" android/app/build.gradle || true
+      - name: Configure Android signing
+        script: |
+          cat << 'EOF' >> android/app/build.gradle
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("CM_KEYSTORE_PATH"))
+                      storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("CM_KEY_ALIAS")
+                      keyPassword System.getenv("CM_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
       - name: Build Android AAB
         script: |
           cd android
