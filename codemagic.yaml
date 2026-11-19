@@ -1,59 +1,28 @@
-workflows:
-  ios-release:
-    name: TrimPlay iOS App Store Build
+android-release:
+    name: TrimPlay Android Google Play Build
     max_build_duration: 60
-    instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Codemagic
+    instance_type: linux_x2
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: app.trimplay
-      xcode: latest
+      android_signing:
+        - trimplay_keystore
+      java: 17
       node: latest
     scripts:
-      - name: Install dependencies and generate iOS project
+      - name: Install dependencies and generate Android project
         script: |
           npm install
           npm run build
-          if [ ! -d "ios" ]; then
-            npx cap add ios
+          if [ ! -d "android" ]; then
+            npx cap add android
           fi
-          npx capacitor-assets generate --ios || true
-          npx cap sync ios
-          if [ -f "ios/App/Podfile" ]; then
-            cd ios/App && pod install && cd ../..
-          fi
-      - name: Set up code signing settings on Xcode project
+          npx capacitor-assets generate --android || true
+          npx cap sync android
+      - name: Increment versionCode
         script: |
-          xcode-project use-profiles
-      - name: Increment build number
+          sed -i "s/versionCode 1/versionCode 10/" android/app/build.gradle || true
+      - name: Build Android AAB
         script: |
-          cd ios/App
-          agvtool new-version -all $BUILD_NUMBER
-      - name: Build ipa for distribution
-        script: |
-          set -o pipefail
-          if [ -d "ios/App/App.xcworkspace" ]; then
-            xcode-project build-ipa \
-              --workspace "ios/App/App.xcworkspace" \
-              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
-                echo "=== XCODE ERROR DETAILS ==="
-                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
-                exit 1
-              }
-          else
-            xcode-project build-ipa \
-              --project "ios/App/App.xcodeproj" \
-              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
-                echo "=== XCODE ERROR DETAILS ==="
-                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
-                exit 1
-              }
-          fi
+          cd android
+          ./gradlew bundleRelease
     artifacts:
-      - build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
+      - android/app/build/outputs/**/*.aab
