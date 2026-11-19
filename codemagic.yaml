@@ -1,4 +1,64 @@
-android-release:
+workflows:
+  ios-release:
+    name: TrimPlay iOS App Store Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.trimplay
+      xcode: latest
+      node: latest
+    scripts:
+      - name: Install dependencies and generate iOS project
+        script: |
+          npm install
+          npm run build
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx capacitor-assets generate --ios || true
+          npx cap sync ios
+          if [ -f "ios/App/Podfile" ]; then
+            cd ios/App && pod install && cd ../..
+          fi
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
+      - name: Build ipa for distribution
+        script: |
+          set -o pipefail
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            xcode-project build-ipa \
+              --workspace "ios/App/App.xcworkspace" \
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
+                echo "=== XCODE ERROR DETAILS ==="
+                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
+                exit 1
+              }
+          else
+            xcode-project build-ipa \
+              --project "ios/App/App.xcodeproj" \
+              --scheme "App" 2>&1 | tee /tmp/xcodebuild.log || {
+                echo "=== XCODE ERROR DETAILS ==="
+                grep -E "error:|Signing for|Provisioning profile" /tmp/xcodebuild.log | tail -n 30
+                exit 1
+              }
+          fi
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  android-release:
     name: TrimPlay Android Google Play Build
     max_build_duration: 60
     instance_type: linux_x2
